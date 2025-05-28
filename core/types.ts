@@ -1,8 +1,5 @@
 // File: core/types.ts
 
-import { Tool } from "./tools/tool";
-import { Planner } from "./reasoning/planner";
-
 export interface ToolPlan {
   tool: string;
   arguments: any;
@@ -14,7 +11,7 @@ export interface EscalationTask {
   from: string;
   input: any;
   decision: ToolPlan;
-  reasoning: string;
+  reasoning?: string;
 }
 
 export interface AgentConfig {
@@ -22,6 +19,17 @@ export interface AgentConfig {
   name: string;
   goals: string[];
   memory: any;
-  planner: Planner;
+  planner: any;
   tools: Tool[];
+  maxInputsPerRun?: number;
 }
+
+export interface ToolInvocation {
+  tool: string;
+  arguments: Record<string, any>;
+  confidence: number;
+  reasoning: string;
+}
+
+// 👇 Add this line to re-export the Tool type
+export type { Tool } from "./tools/tool";

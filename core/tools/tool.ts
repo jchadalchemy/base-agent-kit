@@ -3,6 +3,7 @@
 export interface Tool {
   id: string;
   run: (args: any) => Promise<any>;
+  description?: string; // ✅ Optional field for logs, dashboards, docs, etc.
 }
 
 export class LogTool implements Tool {

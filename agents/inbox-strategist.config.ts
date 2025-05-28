@@ -1,20 +1,19 @@
 // File: agents/inbox-strategist.config.ts
-import { LogTool, ReplyDraftTool, CalendarTool } from "../core/tools/tool";
-import { SupabaseMemory } from "../core/memory/supabase";
-import { Planner } from "../core/reasoning/planner";
-import { AgentConfig } from "../core/types";
 
-const InboxStrategistConfig: AgentConfig = {
+import { AgentConfig } from "../core/types";
+import { SupabaseMemory } from "../core/memory/supabase";
+import { RuleBasedPlanner } from "../core/planners/rule_based_planner";
+import { LogTool } from "../core/tools/log_tool";
+import { ReplyDraftTool } from "../core/tools/reply_draft_tool";
+
+const config: AgentConfig = {
   id: "inbox-strategist",
   name: "Inbox Strategist",
-  goals: [
-    "Interpret incoming emails",
-    "Determine urgency and purpose",
-    "Respond with clarity and professionalism"
-  ],
+  goals: ["Interpret email intent", "Prioritize responses"],
   memory: new SupabaseMemory(),
-  planner: new Planner(),
-  tools: [new LogTool(), new ReplyDraftTool(), new CalendarTool()]
+  planner: RuleBasedPlanner,
+  tools: [LogTool, ReplyDraftTool],
+  maxInputsPerRun: 1,
 };
 
-export default InboxStrategistConfig;
+export default config;

@@ -1,20 +1,20 @@
 // File: agents/review-agent.config.ts
-import { LogTool, ReplyDraftTool, CalendarTool } from "../core/tools/tool";
+import { AgentConfig } from "../core/types";
 import { SupabaseMemory } from "../core/memory/supabase";
 import { Planner } from "../core/reasoning/planner";
-import { AgentConfig } from "../core/types";
+import { RuleBasedPlanner } from "../core/planners/rule_based_planner";
+import { LogTool } from "../core/tools/log_tool";
+import { ReplyDraftTool } from "../core/tools/reply_draft_tool";
+import { TaskCreateTool } from "../core/tools/task_create_tool";
 
-const ReviewAgentConfig: AgentConfig = {
+const config: AgentConfig = {
   id: "review-agent",
   name: "Review Agent",
-  goals: [
-    "Provide backup perspective",
-    "Propose secondary insights for decisions",
-    "Ensure decisions are not missed"
-  ],
+  goals: ["Review plans", "Provide second opinions"],
   memory: new SupabaseMemory(),
-  planner: new Planner(),
-  tools: [new LogTool(), new ReplyDraftTool(), new CalendarTool()]
+  planner: RuleBasedPlanner,
+  tools: [LogTool, ReplyDraftTool],
+  maxInputsPerRun: 1
 };
 
-export default ReviewAgentConfig;
+export default config;
