@@ -31,5 +31,4 @@ export interface ToolInvocation {
   reasoning: string;
 }
 
-// 👇 Add this line to re-export the Tool type
 export type { Tool } from "./tools/tool";

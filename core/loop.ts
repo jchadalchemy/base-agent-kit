@@ -1,86 +1,71 @@
 // File: core/loop.ts
 
-import fs from "fs";
-import path from "path";
-import { pathToFileURL } from "url";
 import { AgentConfig } from "./types";
+import { executeTool } from "./tools/execute";
 
-// Interval in milliseconds between agent loop runs
-const AGENT_LOOP_INTERVAL = 30_000;
+export async function runAgentLoop(agentConfig: AgentConfig) {
+  console.log(`[${agentConfig.name}] 🧠 Starting loop...`);
 
-// 🔧 Fix for TS7053 - Allow access to Symbol.for on process
-const isRunningInTsNode = (process as any)[Symbol.for('ts-node.register.instance')] !== undefined;
+  const input = "Client email: Can we reschedule our 2pm?"; // Placeholder or actual logic to pull input
 
-export async function runSupervisor() {
-  console.log("[Base Agent Kit] Starting agent system...");
+  // ✅ Save input to Supabase
+  if (agentConfig.memory?.saveInput) {
+    try {
+      await agentConfig.memory.saveInput(agentConfig.id, input);
+    } catch (err) {
+      console.error(`[${agentConfig.name}] ❌ Error saving input:`, err);
+    }
+  }
 
-  // Start loop
+  const plan = await agentConfig.planner.plan(input, agentConfig.tools);
+
+  console.log(`[${agentConfig.name}] 🗺️  Planned action:`, plan);
+  console.log(`[${agentConfig.name}] 🤔 Reasoning: ${plan.reasoning}`);
+  console.log(`[${agentConfig.name}] 📈 Confidence: ${plan.confidence}`);
+
+  const result = await executeTool(plan.tool, plan.arguments, agentConfig.tools);
+  console.log(`[${agentConfig.name}] 🛠️ Tool result:`, result);
+
+  // ✅ Save decision to Supabase with logs for debugging
+  if (agentConfig.memory?.saveDecision) {
+    console.log(`[${agentConfig.name}] 🧪 About to call saveDecision...`);
+    try {
+      await agentConfig.memory.saveDecision(agentConfig.id, plan);
+      console.log(`[${agentConfig.name}] ✅ saveDecision call completed.`);
+    } catch (err) {
+      console.error(`[${agentConfig.name}] ❌ Error saving decision:`, err);
+    }
+  } else {
+    console.log(`[${agentConfig.name}] 🚫 No saveDecision method found`);
+  }
+
+  console.log(`[${agentConfig.name}] 🔁 Loop complete for input: "${input}"`);
+}
+
+// ✅ Add this to allow index.ts to import and run all agents
+export async function runSupervisor(agents: AgentConfig[]) {
   console.log("[Supervisor] Starting recurring agent loop every 30s...");
 
   const loop = async () => {
     console.log("[Supervisor] 🔄 Checking for active agents...");
-
-    const agentDir = path.join(__dirname, "../agents");
-    const agentFiles = fs.readdirSync(agentDir).filter(f => f.endsWith(".config.ts"));
-
-    for (const file of agentFiles) {
-      const agentId = file.replace(".config.ts", "");
+    for (const agent of agents) {
+      console.log(`\n[Supervisor] Running agent: ${agent.name}`);
       try {
-        const configFile = path.join(agentDir, file);
-
-        const module = isRunningInTsNode
-          ? require(configFile)
-          : await import(pathToFileURL(configFile).href);
-
-        const config: AgentConfig = module.default;
-        console.log(`\n[Supervisor] Running agent: ${config.name}\n`);
-        await runAgentLoop(config);
+        await runAgentLoop(agent);
       } catch (err) {
-        console.error(`[Supervisor] ❌ Error running agent ${agentId}:`, err);
+        console.error(`[Supervisor] ❌ Error running agent ${agent.id}:`, err);
       }
     }
-
-    console.log("[Supervisor] ✅ Agent loop complete.\n");
+    console.log("\n[Supervisor] ✅ Agent loop complete.\n");
   };
 
-  await loop(); // Run immediately once
-  const interval = setInterval(loop, AGENT_LOOP_INTERVAL);
+  await loop();
 
-  // Graceful shutdown
+  const interval = setInterval(loop, 30_000);
+
   process.on("SIGINT", () => {
     console.log("[Supervisor] 🛑 Caught interrupt. Exiting...");
     clearInterval(interval);
     process.exit();
   });
-}
-
-async function runAgentLoop(config: AgentConfig) {
-  console.log(`[${config.name}] 🧠 Starting loop...`);
-
-  const inputMessages = [
-    "Client email: Can we reschedule our 2pm?",
-    "Follow-up: Can you send the deck before Friday?",
-    "Reminder: Your license expires next week."
-  ];
-
-  const max = config.maxInputsPerRun || 1;
-  const inputsToProcess = inputMessages.slice(0, max);
-
-  for (const input of inputsToProcess) {
-    const plan = await config.planner.plan(input, config.tools);
-
-    console.log(`[${config.name}] 🗺️  Planned action:`, plan);
-    console.log(`[${config.name}] 🤔 Reasoning: ${plan.reasoning}`);
-    console.log(`[${config.name}] 📈 Confidence: ${plan.confidence}`);
-    console.log(`[${config.name}] ▶️ Executing tool: ${plan.tool}`);
-
-    const tool = config.tools.find(t => t.id === plan.tool);
-    if (tool) {
-      await tool.run(plan.arguments);
-    } else {
-      console.warn(`[${config.name}] ⚠️ Tool "${plan.tool}" not found`);
-    }
-
-    console.log(`[${config.name}] 🔁 Loop complete for input: "${input}"\n`);
-  }
 }

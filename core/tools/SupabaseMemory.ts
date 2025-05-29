@@ -1,9 +1,8 @@
-// File: core/memory/supabase.ts
+// File: core/tools/SupabaseMemory.ts
 
 import { createClient } from "@supabase/supabase-js";
-import dotenv from "dotenv";
 import { ToolInvocation } from "../types";
-
+import dotenv from "dotenv";
 dotenv.config();
 
 const supabase = createClient(
@@ -12,20 +11,10 @@ const supabase = createClient(
 );
 
 export class SupabaseMemory {
-  async getLatestInput(): Promise<any> {
-    const { data, error } = await supabase
-      .from("agent_inputs")
-      .select("*")
-      .order("timestamp", { ascending: false })
-      .limit(1);
-
-    return error ? null : data?.[0];
-  }
-
   async saveInput(agentId: string, input: string) {
     const { error } = await supabase.from("agent_inputs").insert({
       agent_id: agentId,
-      input, // ✅ matches schema: column name is "input", not "input_text"
+      input_text: input,
     });
 
     if (error) {
@@ -41,7 +30,7 @@ export class SupabaseMemory {
         agent_id: agentId,
         input_text: plan.arguments?.message ?? "[Unknown input]",
         tool_used: plan.tool ?? "[Unknown tool]",
-        tool_args: plan.arguments ?? {},
+        tool_args: JSON.stringify(plan.arguments ?? {}),
         confidence: plan.confidence ?? 0,
         reasoning: plan.reasoning ?? "[No reasoning provided]",
         created_at: new Date().toISOString(),
@@ -55,10 +44,16 @@ export class SupabaseMemory {
         .select();
 
       if (error) {
-        console.error("[Memory] ❌ Error saving decision:", error.message);
-      } else {
-        console.log("[Memory] ✅ Decision saved. Record:", data);
+        console.error("[Memory] ❌ Supabase insert error:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        throw error;
       }
+
+      console.log("[Memory] ✅ Decision saved. Record:", data);
     } catch (err: any) {
       console.error("[Memory] ❌ Exception saving decision:", err.message || err);
     }

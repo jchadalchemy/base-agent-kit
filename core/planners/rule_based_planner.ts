@@ -1,4 +1,4 @@
-// core/planners/rule_based_planner.ts
+// File: core/planners/rule_based_planner.ts
 
 import { ToolInvocation } from "../types";
 import OpenAI from "openai";
@@ -17,53 +17,57 @@ export const RuleBasedPlanner = {
     const logTool = tools.find((t) => t.id === "log");
     const taskTool = tools.find((t) => t.id === "task-create");
 
-    // Rule-based logic
-    if (lowerInput.includes("reschedule")) {
-      if (replyTool) {
-        return {
-          tool: replyTool.id,
-          arguments: {
-            message: input,
-          },
-          confidence: 0.9,
-          reasoning: `Detected scheduling request, composing a professional reschedule reply.`,
-        };
-      }
+    // 📅 Rule: rescheduling
+    if (lowerInput.includes("reschedule") && replyTool) {
+      return {
+        tool: replyTool.id,
+        arguments: { message: input },
+        confidence: 0.9,
+        reasoning: "Detected scheduling request, composing a professional reschedule reply.",
+      };
     }
 
-    if (lowerInput.includes("reply") || lowerInput.includes("respond")) {
-      if (replyTool) {
-        return {
-          tool: replyTool.id,
-          arguments: {
-            message: input,
-          },
-          confidence: 0.95,
-          reasoning: `Rule-based planner matched keyword: \"reply\" or \"respond\"`,
-        };
-      }
+    // 💬 Rule: reply or respond
+    if ((lowerInput.includes("reply") || lowerInput.includes("respond")) && replyTool) {
+      return {
+        tool: replyTool.id,
+        arguments: { message: input },
+        confidence: 0.95,
+        reasoning: `Rule-based planner matched keyword: "reply" or "respond"`,
+      };
     }
 
-    if (lowerInput.includes("delegate") || lowerInput.includes("handoff")) {
-      if (taskTool) {
-        return {
-          tool: taskTool.id,
-          arguments: {
-            message: input,
-            target_agent_id: "review-agent",
+    // 🤝 Rule: delegation or handoff
+    if ((lowerInput.includes("delegate") || lowerInput.includes("handoff") || lowerInput.includes("forward")) && taskTool) {
+      const match = lowerInput.match(/(?:delegate|handoff|forward)\s+(?:to\s+)?([a-zA-Z0-9-_]+)/);
+      const target_agent_id = match?.[1] || "review-agent"; // Fallback default
+
+      return {
+        tool: taskTool.id,
+        arguments: {
+          from: "rule-based-planner",
+          input,
+          decision: {
+            tool: "reply-draft",
+            arguments: { message: input },
+            confidence: 0.85,
+            reasoning: "Likely needs a reply; task escalated for confirmation.",
           },
-          confidence: 0.85,
-          reasoning: "Detected a request to delegate or transfer task responsibility.",
-        };
-      }
+          target_agent_id,
+          reasoning: `Detected delegation to agent "${target_agent_id}".`,
+        },
+        confidence: 0.88,
+        reasoning: `Matched delegation phrase. Creating task for ${target_agent_id}.`,
+      };
     }
 
-    // GPT fallback if no rule matched
+    // 🤖 GPT fallback
     if (useGPTFallback) {
       const toolNames = tools.map((t) => t.id).join(", ");
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4",
+        temperature: 0.2,
         messages: [
           {
             role: "system",
@@ -71,10 +75,9 @@ export const RuleBasedPlanner = {
           },
           {
             role: "user",
-            content: `User message: \"${input}\"`,
+            content: `User message: "${input}"`,
           },
         ],
-        temperature: 0.2,
       });
 
       try {
@@ -87,7 +90,7 @@ export const RuleBasedPlanner = {
           confidence: parsed.confidence || 0.6,
           reasoning: parsed.reasoning || "No reasoning provided.",
         };
-      } catch (err) {
+      } catch {
         return {
           tool: logTool?.id ?? "log",
           arguments: { message: `GPT parsing failed for input: ${input}` },
@@ -97,7 +100,7 @@ export const RuleBasedPlanner = {
       }
     }
 
-    // Final fallback if neither rule nor GPT matched
+    // 🪵 Final fallback
     return {
       tool: logTool?.id ?? "log",
       arguments: { message: `No rule matched for: ${input}` },

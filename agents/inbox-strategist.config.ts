@@ -5,6 +5,7 @@ import { SupabaseMemory } from "../core/memory/supabase";
 import { RuleBasedPlanner } from "../core/planners/rule_based_planner";
 import { LogTool } from "../core/tools/log_tool";
 import { ReplyDraftTool } from "../core/tools/reply_draft_tool";
+import { TaskCreateTool } from "../core/tools/task_create_tool";
 
 const config: AgentConfig = {
   id: "inbox-strategist",
@@ -12,7 +13,7 @@ const config: AgentConfig = {
   goals: ["Interpret email intent", "Prioritize responses"],
   memory: new SupabaseMemory(),
   planner: RuleBasedPlanner,
-  tools: [LogTool, ReplyDraftTool],
+  tools: [ReplyDraftTool, LogTool, TaskCreateTool],
   maxInputsPerRun: 1,
 };
 

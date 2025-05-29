@@ -13,7 +13,7 @@ const config: AgentConfig = {
   goals: ["Review plans", "Provide second opinions"],
   memory: new SupabaseMemory(),
   planner: RuleBasedPlanner,
-  tools: [LogTool, ReplyDraftTool],
+  tools: [LogTool, ReplyDraftTool, TaskCreateTool],
   maxInputsPerRun: 1
 };
 
